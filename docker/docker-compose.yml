@@ -1,3 +1,11 @@
+# Without `name:`, Compose names the project after this file's parent
+# directory (`docker`), and sibling repos plus git worktrees share one
+# `docker_lake_build_cache`. A tracked hardcoded name is identical in every
+# worktree, so the per-tree value lives in a gitignored `docker/.env`
+# (`COMPOSE_PROJECT_NAME=<lowercase name>`); the main tree sets nothing and
+# falls through to the default. See CLAUDE.md's per-clone setup.
+name: ${COMPOSE_PROJECT_NAME:-formal-mathfin}
+
 services:
   verify:
     # Pull-first, build-as-fallback. `docker compose run` checks the local
@@ -81,7 +89,9 @@ services:
       # just built). Sharing `lake_build_cache` means one `lake build` (via
       # either service) populates a single consistent olean store both reuse.
       # INVARIANT: never run `verify` and `lean-repl` concurrently — they share
-      # this volume and Lake's build lock (one writer at a time).
+      # this volume and Lake's build lock (one writer at a time). The lock is
+      # per volume, so it spans every checkout that resolves to the same
+      # Compose project name — sibling repos and worktrees included.
       - lake_build_cache:/app/.lake
       # The repo root is the Lake project root (see
       # `tools.verify.config.LeanConfig.local_project`, default ".").

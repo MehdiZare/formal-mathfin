@@ -152,7 +152,14 @@ different regions — which on 2026-08-07 dropped a row during the #173 merge an
 put main red. `.gitattributes` routes it through `tools/verify/ledger_merge.py`,
 which unions disjoint verifications and DROPS any entry the two sides verified
 under different inputs so it re-verifies rather than asserting a verdict this
-tree never had. Two setup lines per clone, since git config is not versioned:
+tree never had. Two `git config` lines per clone, since git config is not
+versioned. Same category: a non-default tree (worktree or sibling checkout)
+writes a gitignored `docker/.env` with `COMPOSE_PROJECT_NAME=<its own
+lowercase name>` so it does not share the default olean volume. Docker seeds
+that volume from the image's `/app/.lake` on first creation; a tree the
+image does not match then pays a full Mathlib + BrownianMotion + MathFin
+build, not the short incremental a shared warm cache was paying. The main
+tree needs no `.env` and falls through to `formal-mathfin`.
 
 ```bash
 git config merge.mathfin-ledger.name "semantic merge for verification_ledger.json"
@@ -160,7 +167,7 @@ git config merge.mathfin-ledger.driver "python3 tools/verify/ledger_merge.py %O 
 git config core.hooksPath .githooks   # pre-push: blocks a red ledger reaching main
 ```
 
-Without them git falls back to the text merge, so `tests/test_ledger.py` stays the
+Without the `git config` lines git falls back to the text merge, so `tests/test_ledger.py` stays the
 real safety net; the driver is what keeps it from firing. **main has no branch
 protection**, so a locally-created merge commit reaches it with no pre-merge CI —
 that is how #173 landed red. The `pre-push` hook covers that gap host-side in ~1s.
@@ -189,8 +196,19 @@ Docker notes:
   authoring `MathFin/*.lean` on host (VS Code + Lean LSP) propagates
   without a rebuild. The olean store lives in the `lake_build_cache`
   named volume, shared by `verify` and `lean-repl` (one Lake writer at a
-  time — never run a build in one while the other is up); any host-side
-  `.lake/` directory is unused and should not exist.
+  time — never run a build in one while the other is up). That writer rule
+  spans sibling checkouts and git worktrees, not only the two services
+  inside one tree. `docker/docker-compose.yml` sets
+  `name: ${COMPOSE_PROJECT_NAME:-formal-mathfin}`, so an unset project name
+  is `formal-mathfin` rather than the directory-derived `docker`. Checkouts
+  that skip the gitignored `docker/.env` still share that default volume.
+  Neither `docker ps --format '{{.Image}}' | grep mathfin-verify` nor
+  `ps -eo comm | grep -x lake` proves the slot is free — only an explicit
+  handoff does (`docs/patterns.md`, "The slot watcher that watched the
+  wrong noun"). Any host-side `.lake/` directory is unused and should not
+  exist. After moving off the old project name, the orphaned `docker_*`
+  volumes (`docker_lake_build_cache`, `docker_lean_interact_cache`) can be
+  removed with `docker volume rm` once no container mounts them.
 - **Single-FILE bind mounts pin the inode** (`MathFin.lean`,
   `lakefile.lean`, `lake-manifest.json`, `lean-toolchain`,
   `mathfin.toml`): rename-based writes (Claude's Edit/Write tools, `sed
@@ -200,8 +218,9 @@ Docker notes:
   modules built fine but the umbrella's import list was stale →
   "unknown constant" in AxiomAudit for every new name. After editing
   any single-file-mounted file, re-sync it into running containers
-  (`docker exec -i docker-lean-repl-1 sh -c 'cat > /app/MathFin.lean'
-  < MathFin.lean`) or restart the service. And never `| tail` a build
+  (`docker exec -i formal-mathfin-lean-repl-1 sh -c 'cat > /app/MathFin.lean'
+  < MathFin.lean`; a non-default tree's container is
+  `<COMPOSE_PROJECT_NAME>-lean-repl-1`) or restart the service. And never `| tail` a build
   log you are diagnosing — the first error is the diagnostic one.
 - Both Lean services default to `cpuset 0-3` (4 Lake workers) and
   `mem_limit 6g`: this host gives WSL ~10 GB (the Memory-doctrine cap) and uncapped Lean runs froze

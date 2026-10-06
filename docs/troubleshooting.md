@@ -40,7 +40,8 @@ content.
 
 **Fix:** Re-sync the file into the running container:
 ```bash
-docker exec -i docker-lean-repl-1 sh -c 'cat > /app/MathFin.lean' < MathFin.lean
+docker exec -i formal-mathfin-lean-repl-1 sh -c 'cat > /app/MathFin.lean' < MathFin.lean
+# non-default tree: <COMPOSE_PROJECT_NAME>-lean-repl-1 instead of formal-mathfin-lean-repl-1
 # Or restart the service:
 docker compose -f docker/docker-compose.yml restart lean-repl
 ```
