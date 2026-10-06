@@ -1558,7 +1558,9 @@ existing statement exactly, or the reduction lemma is wrong.
 # `/app/.lake/` on first creation (Docker semantics), then survives
 ```
 
-`docker_lake_build_cache` is mounted at `/app/.lake` for **both** `verify` and `lean-repl`
+`formal-mathfin_lake_build_cache` (the default project; a non-default tree's volume is
+prefixed by its `COMPOSE_PROJECT_NAME`) is mounted at `/app/.lake` for **both** `verify` and
+`lean-repl`
 (`Dockerfile.verify:33-38` is what bakes the oleans into the image in the first place: `COPY
 MathFin/` then `lake exe cache get && lake build`). Docker only populates a named volume from the
 image on the volume's *first* creation — an existing volume from a previous image hides whatever
@@ -1568,7 +1570,7 @@ is evidence the volume predates it.
 ### Rebasing onto a published commit is nearly free — measured
 
 When a branch needs rebasing onto a `main` whose GHCR image CI has already published, the sequence
-`daemon down → rebase → docker volume rm docker_lake_build_cache → daemon up` re-populates the
+`daemon down → rebase → docker volume rm formal-mathfin_lake_build_cache → daemon up` re-populates the
 volume from the image's baked tree — a file **copy**, not a re-elaboration — and Lake then
 elaborates only what the branch adds on top. **Measured 2026-08-17: 9 modules instead of ~9000,
 about 59 seconds instead of the usual 10–15 minutes.**
@@ -1689,7 +1691,7 @@ around 4.3 GB before it elaborates anything. Checking a 600-line measure-theory 
 walks it into the cap: the symptom is not an error but a check that takes 10+ minutes at 40 % CPU
 and then "Lean REPL died … respawning" in the logs, after which the backend silently retries on a
 fresh REPL — paying the ~5 min olean load again, invisibly, so the *client* just sees one very slow
-check. `docker stats --no-stream docker-lean-repl-1` separates "still elaborating" from "thrashing
+check. `docker stats --no-stream formal-mathfin-lean-repl-1` separates "still elaborating" from "thrashing
 at the cap" in one second; above ~5.5 GiB the next check is better spent after a restart.
 
 **And measure the alternative before assuming the daemon wins.** Same file, same session:

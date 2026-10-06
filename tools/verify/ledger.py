@@ -199,7 +199,10 @@ def daemon_check(code: str, timeout: float) -> dict:
     return json.loads(b"".join(chunks).decode("utf-8"))
 
 
-EXEC_CONTAINER = os.environ.get("LEDGER_EXEC_CONTAINER", "docker-lean-repl-1")
+# Tracks `name: ${COMPOSE_PROJECT_NAME:-formal-mathfin}` in
+# docker/docker-compose.yml (`<project>-lean-repl-1`). A non-default tree
+# overrides this to match its own COMPOSE_PROJECT_NAME.
+EXEC_CONTAINER = os.environ.get("LEDGER_EXEC_CONTAINER", "formal-mathfin-lean-repl-1")
 # Compose bind-mounts specific subtrees (MathFin/, tools/, ...), NOT the repo
 # root — so the temp file must live inside one of them. MathFin/ is mounted RW
 # (same pattern as scripts/bench-check.sh); the dotfile name keeps it out of
